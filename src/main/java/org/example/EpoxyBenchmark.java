@@ -1,10 +1,12 @@
 package org.example;
 
 import java.sql.SQLException;
+import java.util.concurrent.*;
+
+import org.example.shims.MongoDBShim;
+import org.example.shims.PostgresShim;
+
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class EpoxyBenchmark {
     private EpoxyCoordinator coordinator;
@@ -21,7 +23,7 @@ public class EpoxyBenchmark {
         random = new Random();
     }
 
-    public void runBenchmark(int numThreads, int numTransactions) throws InterruptedException {
+    public void runBenchmark(int numThreads, int numTransactions, double readWriteRatio, double crossStoreRatio) throws InterruptedException {
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         CountDownLatch latch = new CountDownLatch(numTransactions);
         long startTime = System.currentTimeMillis();
@@ -29,7 +31,11 @@ public class EpoxyBenchmark {
         for (int i = 0; i < numTransactions; i++) {
             executor.submit(() -> {
                 try {
-                    runTransaction();
+                    if (random.nextDouble() < readWriteRatio) {
+                        runReadTransaction(crossStoreRatio);
+                    } else {
+                        runWriteTransaction(crossStoreRatio);
+                    }
                 } catch (SQLException e) {
                     e.printStackTrace();
                 } finally {
@@ -46,32 +52,43 @@ public class EpoxyBenchmark {
         System.out.println("Throughput: " + throughput + " transactions per second");
     }
 
-    private void runTransaction() throws SQLException {
+    private void runReadTransaction(double crossStoreRatio) throws SQLException {
+        TransactionContext txn = coordinator.beginTransaction();
+        try {
+            String key = "key" + random.nextInt(1000);
+            if (random.nextDouble() < crossStoreRatio) {
+                postgresShim.query(txn, key);
+                mongoDBShim.query(txn, key);
+            } else {
+                if (random.nextBoolean()) {
+                    postgresShim.query(txn, key);
+                } else {
+                    mongoDBShim.query(txn, key);
+                }
+            }
+            coordinator.commitTransaction(txn);
+        } catch (Exception e) {
+            coordinator.abortTransaction(txn);
+            throw e;
+        }
+    }
+
+    private void runWriteTransaction(double crossStoreRatio) throws SQLException {
         TransactionContext txn = coordinator.beginTransaction();
         try {
             String key = "key" + random.nextInt(1000);
             String value = "value" + random.nextInt(1000);
-
-            if (random.nextBoolean()) {
+            if (random.nextDouble() < crossStoreRatio) {
                 postgresShim.update(txn, key, value);
-            } else {
                 mongoDBShim.update(txn, key, value);
-            }
-
-            if (random.nextBoolean()) {
-                String readKey = "key" + random.nextInt(1000);
+            } else {
                 if (random.nextBoolean()) {
-                    postgresShim.query(txn, readKey);
+                    postgresShim.update(txn, key, value);
                 } else {
-                    mongoDBShim.query(txn, readKey);
+                    mongoDBShim.update(txn, key, value);
                 }
             }
-
-            if (coordinator.validateTransaction(txn)) {
-                coordinator.commitTransaction(txn);
-            } else {
-                coordinator.abortTransaction(txn);
-            }
+            coordinator.commitTransaction(txn);
         } catch (Exception e) {
             coordinator.abortTransaction(txn);
             throw e;
@@ -80,15 +97,14 @@ public class EpoxyBenchmark {
 
     public static void main(String[] args) throws SQLException, InterruptedException {
         EpoxyBenchmark benchmark = new EpoxyBenchmark();
-        int numThreads = 10;
-        int numTransactions = 10000;
         
-        System.out.println("Starting Epoxy benchmark...");
-        System.out.println("Number of threads: " + numThreads);
-        System.out.println("Number of transactions: " + numTransactions);
+        System.out.println("Running read-heavy workload (90% reads, 50% cross-store)");
+        benchmark.runBenchmark(10, 10000, 0.9, 0.5);
         
-        benchmark.runBenchmark(numThreads, numTransactions);
+        System.out.println("Running write-heavy workload (30% reads, 50% cross-store)");
+        benchmark.runBenchmark(10, 10000, 0.3, 0.5);
+        
+        System.out.println("Running mixed workload (50% reads, 80% cross-store)");
+        benchmark.runBenchmark(10, 10000, 0.5, 0.8);
     }
 }
-
-

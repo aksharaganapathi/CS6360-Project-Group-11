@@ -40,7 +40,7 @@ public class TransactionContext {
         return rcTxns;
     }
 
-    public Set<String> getModifiedKeys() {
-        return modifiedKeys.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
+    public Set<String> getModifiedKeys(DataStoreShim shim) {
+        return modifiedKeys.getOrDefault(shim, new HashSet<>());
     }
 }

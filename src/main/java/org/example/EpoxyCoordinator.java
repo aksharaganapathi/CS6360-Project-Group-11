@@ -11,12 +11,14 @@ public class EpoxyCoordinator {
     private ConcurrentHashMap<Long, TransactionContext> activeTxns;
     private List<DataStoreShim> secondaryStores;
     private ScheduledExecutorService garbageCollector;
+    private ConcurrentHashMap<String, Object> globalLocks;
 
     public EpoxyCoordinator(String jdbcUrl, String username, String password) throws SQLException {
         this.primaryDb = DriverManager.getConnection(jdbcUrl, username, password);
         this.txnIdGenerator = new AtomicLong(1);
         this.activeTxns = new ConcurrentHashMap<>();
         this.secondaryStores = new ArrayList<>();
+        this.globalLocks = new ConcurrentHashMap<>();
         this.garbageCollector = Executors.newSingleThreadScheduledExecutor();
         this.garbageCollector.scheduleAtFixedRate(this::performGarbageCollection, 0, 1, TimeUnit.MINUTES);
     }
@@ -40,9 +42,12 @@ public class EpoxyCoordinator {
 
     public void commitTransaction(TransactionContext txn) throws SQLException {
         if (validateTransaction(txn)) {
+            for (DataStoreShim shim : secondaryStores) {
+                shim.prepareCommit(txn);
+            }
             primaryDb.commit();
             for (DataStoreShim shim : secondaryStores) {
-                shim.commitTransaction(txn);
+                shim.finalizeCommit(txn);
             }
             activeTxns.remove(txn.getTxnId());
         } else {
@@ -59,7 +64,7 @@ public class EpoxyCoordinator {
         activeTxns.remove(txn.getTxnId());
     }
 
-    public boolean validateTransaction(TransactionContext txn) {
+    private boolean validateTransaction(TransactionContext txn) {
         for (DataStoreShim shim : secondaryStores) {
             if (!shim.validateTransaction(txn)) {
                 return false;
@@ -86,5 +91,13 @@ public class EpoxyCoordinator {
         for (DataStoreShim shim : secondaryStores) {
             shim.garbageCollect(globalXmin);
         }
+    }
+
+    public Object acquireGlobalLock(String key) {
+        return globalLocks.computeIfAbsent(key, k -> new Object());
+    }
+
+    public void releaseGlobalLock(String key) {
+        globalLocks.remove(key);
     }
 }

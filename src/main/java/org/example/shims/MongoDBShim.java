@@ -1,9 +1,12 @@
-package org.example;
+package org.example.shims;
 
+import com.mongodb.WriteConcern;
 import com.mongodb.client.*;
 import com.mongodb.client.model.UpdateOptions;
 
 import org.bson.Document;
+import org.example.DataStoreShim;
+import org.example.TransactionContext;
 
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,15 +57,36 @@ public class MongoDBShim implements DataStoreShim {
     @Override
     public boolean validateTransaction(TransactionContext txn) {
         MongoCollection<Document> collection = database.getCollection("epoxy_data");
-        Document filter = new Document("key", new Document("$in", txn.getModifiedKeys()))
+        Document filter = new Document("key", new Document("$in", txn.getModifiedKeys(this)))
                 .append("begin_txn", new Document("$gte", txn.getXmin())
                         .append("$nin", txn.getRcTxns()));
         return collection.countDocuments(filter) == 0;
     }
 
     @Override
-    public void commitTransaction(TransactionContext txn) {
-        // No action needed for MongoDB as the primary database handles the commit
+    public void prepareCommit(TransactionContext txn) {
+        // MongoDB doesn't have a native prepare phase, so we'll use this method
+        // to ensure all writes are durable before the commit.
+        WriteConcern writeConcern = WriteConcern.MAJORITY; // Ensure writes are on majority of replicas
+        
+        for (String key : txn.getModifiedKeys(this)) {
+            Document filter = new Document("key", key)
+                              .append("beginTxn", txn.getTxnId());
+            
+            // Force a write concern to ensure durability
+            database.getCollection("epoxy_data")
+                  .withWriteConcern(writeConcern)
+                  .find(filter)
+                  .first();
+        }
+    }
+
+    @Override
+    public void finalizeCommit(TransactionContext txn) {
+        // Release locks
+        for (String key : txn.getModifiedKeys(this)) {
+            locks.remove(key);
+        }
     }
 
     @Override

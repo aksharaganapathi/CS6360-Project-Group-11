@@ -1,7 +1,10 @@
-package org.example;
+package org.example.shims;
 
 import java.sql.*;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.example.DataStoreShim;
+import org.example.TransactionContext;
 
 public class PostgresShim implements DataStoreShim {
     private Connection connection;
@@ -62,7 +65,7 @@ public class PostgresShim implements DataStoreShim {
         try {
             String sql = "SELECT 1 FROM epoxy_data WHERE key IN (?) AND begin_txn >= ? AND begin_txn NOT IN (?)";
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-                Array keysArray = connection.createArrayOf("VARCHAR", txn.getModifiedKeys().toArray());
+                Array keysArray = connection.createArrayOf("VARCHAR", txn.getModifiedKeys(this).toArray());
                 stmt.setArray(1, keysArray);
                 stmt.setLong(2, txn.getXmin());
                 Array rcTxnsArray = connection.createArrayOf("BIGINT", txn.getRcTxns().toArray());
@@ -76,8 +79,16 @@ public class PostgresShim implements DataStoreShim {
     }
 
     @Override
-    public void commitTransaction(TransactionContext txn) {
+    public void prepareCommit(TransactionContext txn) {
         // No action needed for Postgres as the primary database handles the commit
+    }
+
+    @Override
+    public void finalizeCommit(TransactionContext txn) {
+        // Release locks
+        for (String key : txn.getModifiedKeys(this)) {
+            locks.remove(key);
+        }
     }
 
     @Override
@@ -87,6 +98,10 @@ public class PostgresShim implements DataStoreShim {
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setLong(1, txn.getTxnId());
                 stmt.executeUpdate();
+            }
+            // Release locks
+            for (String key : txn.getModifiedKeys(this)) {
+                locks.remove(key);
             }
         } catch (SQLException e) {
             throw new RuntimeException(e);
