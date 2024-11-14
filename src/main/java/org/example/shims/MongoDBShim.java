@@ -20,6 +20,17 @@ public class MongoDBShim implements DataStoreShim {
         this.mongoClient = MongoClients.create(connectionString);
         this.database = mongoClient.getDatabase(databaseName);
         this.locks = new ConcurrentHashMap<>();
+
+        // Initialize collection and index if they don't exist
+        try {
+            database.createCollection("epoxy_data");
+        } catch (Exception e) {
+            // Collection might already exist, that's okay
+        }
+        
+        database.getCollection("epoxy_data").createIndex(
+            new Document("location", "2dsphere")
+        );
     }
 
     @Override

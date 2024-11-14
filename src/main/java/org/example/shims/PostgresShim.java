@@ -63,7 +63,7 @@ public class PostgresShim implements DataStoreShim {
     @Override
     public boolean validateTransaction(TransactionContext txn) {
         try {
-            String sql = "SELECT 1 FROM epoxy_data WHERE key IN (?) AND begin_txn >= ? AND begin_txn NOT IN (?)";
+            String sql = "SELECT 1 FROM epoxy_data WHERE key = ANY(?) AND begin_txn >= ? AND begin_txn != ALL(?)";
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 Array keysArray = connection.createArrayOf("VARCHAR", txn.getModifiedKeys(this).toArray());
                 stmt.setArray(1, keysArray);
