@@ -1,4 +1,6 @@
-package org.example;
+package org.example.shims;
+
+import org.example.TransactionContext;
 
 public interface DataStoreShim {
     void update(TransactionContext txn, String key, String value);

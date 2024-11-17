@@ -5,6 +5,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.example.shims.DataStoreShim;
+
 public class EpoxyCoordinator {
     private Connection primaryDb;
     private AtomicLong txnIdGenerator;
@@ -14,7 +16,32 @@ public class EpoxyCoordinator {
     private ConcurrentHashMap<String, Object> globalLocks;
 
     public EpoxyCoordinator(String jdbcUrl, String username, String password) throws SQLException {
+        // First try to create database if it doesn't exist
+        String baseUrl = jdbcUrl.substring(0, jdbcUrl.lastIndexOf('/'));
+        try (Connection tempConn = DriverManager.getConnection(baseUrl + "/postgres", username, password)) {
+            try (Statement stmt = tempConn.createStatement()) {
+                stmt.execute("CREATE DATABASE elasticsearch_test");
+            } catch (SQLException e) {
+                // Database might already exist, that's fine
+                if (!e.getSQLState().equals("42P04")) { // 42P04 is the SQL state for "database already exists"
+                    throw e;
+                }
+            }
+        }
+
+        // Now connect to the database and create table if needed
         this.primaryDb = DriverManager.getConnection(jdbcUrl, username, password);
+        try (Statement stmt = primaryDb.createStatement()) {
+            stmt.execute(
+                "CREATE TABLE IF NOT EXISTS epoxy_data (" +
+                "key VARCHAR(255) PRIMARY KEY, " +
+                "value TEXT, " +
+                "begin_txn BIGINT, " +
+                "end_txn BIGINT" +
+                ")"
+            );
+        }
+
         this.txnIdGenerator = new AtomicLong(1);
         this.activeTxns = new ConcurrentHashMap<>();
         this.secondaryStores = new ArrayList<>();

@@ -3,7 +3,6 @@ package org.example.shims;
 import java.sql.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.example.DataStoreShim;
 import org.example.TransactionContext;
 
 public class PostgresShim implements DataStoreShim {
@@ -80,7 +79,7 @@ public class PostgresShim implements DataStoreShim {
 
     @Override
     public void prepareCommit(TransactionContext txn) {
-        // No action needed for Postgres as the primary database handles the commit
+        // No action needed for Postgres
     }
 
     @Override

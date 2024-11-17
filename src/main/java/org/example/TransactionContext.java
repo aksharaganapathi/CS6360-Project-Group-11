@@ -2,15 +2,16 @@ package org.example;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
+import org.example.shims.DataStoreShim;
+
 import java.util.*;
 
 public class TransactionContext {
-    private long txnId;
-    private long xmin;
-    private long xmax;
-    private Set<Long> rcTxns;
-    private Map<DataStoreShim, Set<String>> modifiedKeys;
+    private final long txnId;
+    private final long xmin;
+    private final long xmax;
+    private final Set<Long> rcTxns;
+    private final Map<DataStoreShim, Set<String>> modifiedKeys;
 
     public TransactionContext(long txnId, long xmin, long xmax, Set<Long> rcTxns) {
         this.txnId = txnId;

@@ -1,8 +1,10 @@
-package org.example;
+package org.example.benchmarks;
 
 import java.sql.SQLException;
 import java.util.concurrent.*;
 
+import org.example.EpoxyCoordinator;
+import org.example.TransactionContext;
 import org.example.shims.MongoDBShim;
 import org.example.shims.PostgresShim;
 

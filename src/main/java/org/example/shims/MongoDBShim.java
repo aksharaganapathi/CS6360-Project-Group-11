@@ -5,7 +5,6 @@ import com.mongodb.client.*;
 import com.mongodb.client.model.UpdateOptions;
 
 import org.bson.Document;
-import org.example.DataStoreShim;
 import org.example.TransactionContext;
 
 import java.util.Arrays;

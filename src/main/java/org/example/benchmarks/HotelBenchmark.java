@@ -9,6 +9,9 @@ import org.example.TransactionContext;
 import org.example.shims.MongoDBShim;
 
 import java.util.Random;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 
 public class HotelBenchmark {
     private EpoxyCoordinator coordinator;
@@ -18,6 +21,7 @@ public class HotelBenchmark {
     private static final int NUM_HOTELS = 100;
 
     public HotelBenchmark() throws SQLException {
+        // Now connect to the database and create table if needed
         coordinator = new EpoxyCoordinator("jdbc:postgresql://localhost:5432/epoxy_test", "postgres", "test987");
         postgresShim = new PostgresShim("jdbc:postgresql://localhost:5432/epoxy_test", "postgres", "test987");
         mongoDBShim = new MongoDBShim("mongodb://localhost:27017", "epoxy_test");
@@ -52,30 +56,38 @@ public class HotelBenchmark {
     public void runBenchmark(int numThreads, int numOperations) throws InterruptedException {
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         CountDownLatch latch = new CountDownLatch(numOperations);
-        long startTime = System.currentTimeMillis();
+        BenchmarkMetrics metrics = new BenchmarkMetrics();
+        metrics.start(numOperations);
 
-        for (int i = 0; i < numOperations; i++) {
-            executor.submit(() -> {
-                try {
-                    if (random.nextDouble() < 0.8) { // 80% search operations
-                        searchAvailableRooms();
-                    } else { // 20% reservation operations
-                        makeReservation();
+        try {
+            for (int i = 0; i < numOperations; i++) {
+                executor.submit(() -> {
+                    long startTime = System.nanoTime();
+                    try {
+                        if (random.nextDouble() < 0.8) {
+                            searchAvailableRooms();
+                        } else {
+                            makeReservation();
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    } finally {
+                        metrics.recordLatency(startTime);
+                        latch.countDown();
                     }
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                } finally {
-                    latch.countDown();
-                }
-            });
+                });
+            }
+
+            latch.await();
+            metrics.end();
+        } finally {
+            executor.shutdownNow();
+            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                System.err.println("Executor did not terminate in the specified time.");
+            }
+            metrics.printMetrics("Hotel Benchmark");
+            System.exit(0);
         }
-
-        latch.await();
-        long endTime = System.currentTimeMillis();
-        executor.shutdown();
-
-        double throughput = numOperations / ((endTime - startTime) / 1000.0);
-        System.out.println("Hotel Benchmark Throughput: " + throughput + " operations per second");
     }
 
     private void searchAvailableRooms() throws SQLException {
@@ -124,10 +136,40 @@ public class HotelBenchmark {
             throw e;
         }
     }
+}
 
-    public static void main(String[] args) throws SQLException, InterruptedException {
-        HotelBenchmark benchmark = new HotelBenchmark();
-        System.out.println("Running Hotel Benchmark (80% searches, 20% reservations)");
-        benchmark.runBenchmark(10, 10000);
+class BenchmarkMetrics {
+    private final List<Long> latencies = Collections.synchronizedList(new ArrayList<>());
+    private long startTime;
+    private long endTime;
+    private int totalOperations;
+
+    public void start(int operations) {
+        this.totalOperations = operations;
+        this.startTime = System.currentTimeMillis();
+        this.latencies.clear();
+    }
+
+    public void recordLatency(long startNanos) {
+        latencies.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos));
+    }
+
+    public void end() {
+        this.endTime = System.currentTimeMillis();
+    }
+
+    public void printMetrics(String benchmarkName) {
+        double durationSeconds = (endTime - startTime) / 1000.0;
+        double throughput = totalOperations / durationSeconds;
+        
+        Collections.sort(latencies);
+        long p50 = latencies.get((int)(latencies.size() * 0.5));
+        long p99 = latencies.get((int)(latencies.size() * 0.99));
+
+        System.out.printf("%s Results:\n", benchmarkName);
+        System.out.printf("Throughput (QPS): %.2f\n", throughput);
+        System.out.printf("P50 Latency (ms): %d\n", p50);
+        System.out.printf("P99 Latency (ms): %d\n", p99);
+        System.out.println("----------------------------------------");
     }
 } 
