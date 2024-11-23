@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test987
+      POSTGRES_DB: epoxy_test
+    ports:
+      - "5432:5432"
+
+  mongo:
+    image: mongo:4.4
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: epoxy_test
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.12
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+
+  app:
+    build: .
+    depends_on:
+      - postgres
+      - mongo
+      - elasticsearch
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/epoxy_test
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=test987
+      - MONGODB_URI=mongodb://mongo:27017/epoxy_test
+      - ELASTICSEARCH_HOST=http://elasticsearch:9200
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: test987
+      MYSQL_DATABASE: epoxy_test
+      MYSQL_USER: mysql
+      MYSQL_PASSWORD: test987
+    ports:
+      - "3306:3306"
