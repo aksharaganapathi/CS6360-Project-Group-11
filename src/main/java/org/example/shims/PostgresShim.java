@@ -39,7 +39,7 @@ public class PostgresShim implements DataStoreShim {
     public String query(TransactionContext txn, String key) {
         try {
             String sql = "SELECT value FROM epoxy_data WHERE key = ? AND begin_txn <= ? AND (end_txn > ? OR end_txn = ?) " +
-                         "AND (begin_txn < ? OR begin_txn IN (?)) ORDER BY begin_txn DESC LIMIT 1";
+                         "AND (begin_txn < ? OR begin_txn = ANY (?)) ORDER BY begin_txn DESC LIMIT 1";
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setString(1, key);
                 stmt.setLong(2, txn.getTxnId());

@@ -16,6 +16,8 @@ public class MongoDBShim implements DataStoreShim {
     private ConcurrentHashMap<String, Object> locks;
 
     public MongoDBShim(String connectionString, String databaseName) {
+        //turn off the verbose logging
+        System.setProperty("DEBUG.MONGO", "false");
         this.mongoClient = MongoClients.create(connectionString);
         this.database = mongoClient.getDatabase(databaseName);
         this.locks = new ConcurrentHashMap<>();

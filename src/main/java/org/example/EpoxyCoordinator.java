@@ -20,11 +20,9 @@ public class EpoxyCoordinator {
         String baseUrl = jdbcUrl.substring(0, jdbcUrl.lastIndexOf('/'));
         try (Connection tempConn = DriverManager.getConnection(baseUrl + "/postgres", username, password)) {
             try (Statement stmt = tempConn.createStatement()) {
-                stmt.execute("CREATE DATABASE elasticsearch_test");
-            } catch (SQLException e) {
-                // Database might already exist, that's fine
-                if (!e.getSQLState().equals("42P04")) { // 42P04 is the SQL state for "database already exists"
-                    throw e;
+                ResultSet rs = stmt.executeQuery("SELECT 1 FROM pg_database WHERE datname = 'elasticsearch_test'");
+                if (!rs.next()) {
+                    stmt.execute("CREATE DATABASE elasticsearch_test");
                 }
             }
         }
@@ -54,7 +52,7 @@ public class EpoxyCoordinator {
         secondaryStores.add(shim);
     }
 
-    public TransactionContext beginTransaction() throws SQLException {
+    public synchronized TransactionContext beginTransaction() throws SQLException {
         long txnId = txnIdGenerator.getAndIncrement();
         primaryDb.setAutoCommit(false);
         
@@ -67,7 +65,7 @@ public class EpoxyCoordinator {
         return txn;
     }
 
-    public void commitTransaction(TransactionContext txn) throws SQLException {
+    public synchronized void commitTransaction(TransactionContext txn) throws SQLException {
         if (validateTransaction(txn)) {
             for (DataStoreShim shim : secondaryStores) {
                 shim.prepareCommit(txn);
