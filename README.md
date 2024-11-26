@@ -14,7 +14,7 @@ This project implements the Epoxy system as described in the VLDB 2023 paper. Ep
 1. **Clone the repository**:
     ```sh
     git clone https://github.com/aksharaganapathi/CS6360-Project-Group-11.git
-    cd epoxy-implementation
+    cd CS6360-Project-Group-11
     ```
 
 ### Running the Project with Docker
