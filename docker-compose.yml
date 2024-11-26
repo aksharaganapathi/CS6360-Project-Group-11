@@ -14,6 +14,9 @@ services:
       - "27017:27017"
     environment:
       MONGO_INITDB_DATABASE: epoxy_test
+      MONGODB_QUIET: "true"
+      MONGO_LOG_LEVEL: "error"
+    command: ["mongod", "--quiet", "--logpath", "/dev/null"]
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.12
@@ -22,21 +25,6 @@ services:
       - xpack.security.enabled=false
     ports:
       - "9200:9200"
-
-  app:
-    build: .
-    depends_on:
-      - postgres
-      - mongo
-      - elasticsearch
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/epoxy_test
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=test987
-      - MONGODB_URI=mongodb://mongo:27017/epoxy_test
-      - ELASTICSEARCH_HOST=http://elasticsearch:9200
 
   mysql:
     image: mysql:8.0
