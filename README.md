@@ -8,6 +8,7 @@ This project implements the Epoxy system as described in the VLDB 2023 paper. Ep
 ### Prerequisites
 
 - Docker Desktop
+- Any JDK 17+
 
 ### Building the Project
 
