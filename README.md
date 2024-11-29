@@ -32,7 +32,7 @@ This project implements the Epoxy system as described in the VLDB 2023 paper. Ep
     docker-compose ps
     ```
 
-    You should see something like this where all contains are created and up:
+    You should see something like this where all containers are created and up:
    ```
     CONTAINER ID   IMAGE                                                   COMMAND                  CREATED             STATUS          PORTS                               NAMES
     785c329bd120   mongo:4.4                                               "docker-entrypoint.s…"   About an hour ago   Up 55 minutes   0.0.0.0:27017->27017/tcp            epoxy-implementation-mongo-1
