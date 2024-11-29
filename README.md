@@ -32,13 +32,22 @@ This project implements the Epoxy system as described in the VLDB 2023 paper. Ep
     docker-compose ps
     ```
 
+    You should see something like this where all contains are created and up:
+   ```
+    CONTAINER ID   IMAGE                                                   COMMAND                  CREATED             STATUS          PORTS                               NAMES
+    785c329bd120   mongo:4.4                                               "docker-entrypoint.s…"   About an hour ago   Up 55 minutes   0.0.0.0:27017->27017/tcp            epoxy-implementation-mongo-1
+    3855c816d0ac   postgres:13                                             "docker-entrypoint.s…"   5 days ago          Up 55 minutes   0.0.0.0:5432->5432/tcp              epoxy-implementation-postgres-1
+    c12157333ccc   mysql:8.0                                               "docker-entrypoint.s…"   5 days ago          Up 55 minutes   0.0.0.0:3306->3306/tcp, 33060/tcp   epoxy-implementation-mysql-1
+    22d6c8f7e681   docker.elastic.co/elasticsearch/elasticsearch:7.17.12   "/bin/tini -- /usr/l…"   5 days ago          Up 55 minutes   0.0.0.0:9200->9200/tcp, 9300/tcp    epoxy-implementation-elasticsearch-1
+   ```
+
 ### Running Benchmarks
 
-The project includes several benchmarks to evaluate the performance of the Epoxy system.
+Once your docker images are running, you can run the benchmarks. The project includes several benchmarks to evaluate the performance of the Epoxy system. To simplify the process, the project has been compiled into a JAR with all its dependencies, so you don't have to build with Maven yourself. 
 
 1. **Run the benchmarks**:
-    - Open the `src/main/java/org/example/EpoxyRunner.java` file.
-    - Run the `EpoxyRunner` class.
+    - In a terminal running the project directory, run the following command:
+    - ```java -jar epoxy-implementation-1.0-SNAPSHOT-jar-with-dependencies.jar```
 
 ## Project Components
 
