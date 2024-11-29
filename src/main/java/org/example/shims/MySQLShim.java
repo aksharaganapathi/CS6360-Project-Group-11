@@ -11,6 +11,13 @@ public class MySQLShim implements DataStoreShim {
     private ConcurrentHashMap<String, Object> locks;
 
     public MySQLShim(String jdbcUrl, String username, String password) throws SQLException {
+        // Explicitly load MySQL driver
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("MySQL JDBC Driver not found", e);
+        }
+        
         this.connection = DriverManager.getConnection(jdbcUrl, username, password);
         this.locks = new ConcurrentHashMap<>();
 

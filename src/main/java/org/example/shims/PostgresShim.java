@@ -10,6 +10,13 @@ public class PostgresShim implements DataStoreShim {
     private ConcurrentHashMap<String, Object> locks;
 
     public PostgresShim(String jdbcUrl, String username, String password) throws SQLException {
+        // Explicitly load PostgreSQL driver
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("PostgreSQL JDBC Driver not found", e);
+        }
+        
         this.connection = DriverManager.getConnection(jdbcUrl, username, password);
         this.locks = new ConcurrentHashMap<>();
     }

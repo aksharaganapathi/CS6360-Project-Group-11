@@ -16,18 +16,22 @@ public class MongoDBShim implements DataStoreShim {
     private ConcurrentHashMap<String, Object> locks;
 
     public MongoDBShim(String connectionString, String databaseName) {
-        //turn off the verbose logging
+        // MongoDB driver is self-registering, but we'll explicitly check
+        try {
+            Class.forName("com.mongodb.client.MongoClients");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("MongoDB Driver not found", e);
+        }
+
         System.setProperty("DEBUG.MONGO", "false");
         this.mongoClient = MongoClients.create(connectionString);
         this.database = mongoClient.getDatabase(databaseName);
         this.locks = new ConcurrentHashMap<>();
-
-        // Initialize collection and index if they don't exist
+        
+        // Initialize collection
         try {
             database.createCollection("epoxy_data");
-        } catch (Exception e) {
-            // Collection might already exist, that's okay
-        }
+        } catch (Exception ignored) {}
         
         database.getCollection("epoxy_data").createIndex(
             new Document("location", "2dsphere")

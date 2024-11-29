@@ -35,21 +35,27 @@ public class ElasticsearchShim implements DataStoreShim {
     private final ExecutorService bulkExecutor = Executors.newSingleThreadExecutor();
     
     public ElasticsearchShim(String hostname) {
-        // Create the low-level client with optimized settings
+        // Explicitly check for Elasticsearch client
+        try {
+            Class.forName("co.elastic.clients.elasticsearch.ElasticsearchClient");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Elasticsearch client not found", e);
+        }
+
         RestClient restClient = RestClient.builder(
             new HttpHost(hostname, 9200, "http"))
-        .setDefaultHeaders(new Header[]{
-            new BasicHeader("Accept", "*/*"),
-            new BasicHeader("Content-Type", "application/json"),
-            new BasicHeader("X-Elastic-Product", "Elasticsearch")
-        })
-        // Add connection pool settings
-        .setHttpClientConfigCallback(httpClientBuilder -> 
-            httpClientBuilder
-                .setMaxConnTotal(100)
-                .setMaxConnPerRoute(100)
-                .setKeepAliveStrategy((response, context) -> 30000))
-        .build();
+            .setDefaultHeaders(new Header[]{
+                new BasicHeader("Accept", "*/*"),
+                new BasicHeader("Content-Type", "application/json"),
+                new BasicHeader("X-Elastic-Product", "Elasticsearch")
+            })
+            // Add connection pool settings
+            .setHttpClientConfigCallback(httpClientBuilder -> 
+                httpClientBuilder
+                    .setMaxConnTotal(100)
+                    .setMaxConnPerRoute(100)
+                    .setKeepAliveStrategy((response, context) -> 30000))
+            .build();
 
         // Create transport with performance optimizations
         RestClientTransport transport = new RestClientTransport(
